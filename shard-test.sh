@@ -192,7 +192,7 @@ function getDeviceArray {
 
 # BUILD APP APK
 function buildApk() {
-  barName="   ## 🛠 ${BOLD} Building app         $NORMAL  "
+  barName="   ## 🛠${BOLD} Building app         $NORMAL  "
   max_tasks=500
   log_file="$log_folder/${flavor}${variant}ApkBuild.log"
   ProgressBar "$barName" 0 $max_tasks
@@ -234,7 +234,7 @@ function onBuildError {
 
 # BUILD INSTRUMENTATION TEST
 function buildInstrumentationTest() {
-  barName="   ## 🛠 ${BOLD} Building test apps    $NORMAL "
+  barName="   ## 🛠${BOLD} Building test apps    $NORMAL "
 
   ndevices=$(echo "${#ports_array[@]}")
   task_per_device=500
@@ -348,7 +348,7 @@ function installInstrumentationTest() {
     if [ "${flavor}" != "" ];then
       command="adb -s ${ips_array[$counter]}:$port install -r $base_path/app/build/outputs/apk/androidTest/${flavor}/${variant}/app-${flavor}-${variant}-androidTest${counter}.apk"
     else
-      command="adb -s ${ips_array[$counter]}:$port install -r $base_path/app/build/outputs/apk/androidTest/${variant}/app-${variant}-androidTest${counter}.apk" 
+      command="adb -s ${ips_array[$counter]}:$port install -r $base_path/app/build/outputs/apk/androidTest/${variant}/app-${variant}-androidTest${counter}.apk"
     fi
     $command > $log_folder/shard${counter}InstallInstrumentation.log 2>&1
     counter=$((counter+1))
