@@ -22,7 +22,7 @@ test_app_id=$(cat $base_path/app/build.gradle | grep "testApplicationId" | cut -
 test_runner_path=$(echo $test_app_id | sed -e "s/\./\//g")
 test_tags=$(cat $base_path/app/src/androidTest/java/$test_runner_path/$test_runner.kt | grep "tags" | tr ',' '\n' | grep "@" | grep -v "Cucumber" | sed -e "s/\"//g" | sed -e "s/\[//g" | sed -e "s/(//g" | sed -e "s/\]//g" | sed -e "s/)//g" | sed -e "s/ //g" | sed -e "s/=//g" | sed -e "s/tags//g" | tr '\n' ', ')
 IFS=', ' read -r -a test_tags_array <<< "$test_tags"
-#echo "test tags array: ${test_tags_array[@]}"
+number_of_tests=$(grep -r -o -f <(printf "%s\n" "${test_tags_array[@]}") $base_path/app/src/androidTest | grep -v ".kt" | wc -l | sed -e "s/ //g")
 
 name=$(cd $base_path; git config --local remote.origin.url | sed -n 's#.*/\([^.]*\)\.git#\1#p')
 git_branch=$(cd $base_path; git status | grep branch | grep On | awk {'print $3'})
@@ -126,6 +126,7 @@ function printBanner() {
   lbranch=$(complete_banner "   ##$GREEN$BOLD Branch:$ENDCOLOR $NORMAL$BOLD$git_branch$NORMAL" 107)
   ltest_app_id=$(complete_banner "   ##$GREEN$BOLD Test App ID:$ENDCOLOR $NORMAL$BOLD$test_app_id$NORMAL" 107)
   ltest_runner=$(complete_banner "   ##$GREEN$BOLD Runner:$ENDCOLOR $NORMAL$BOLD$test_runner$NORMAL" 107)
+  lnumber_of_tests=$(complete_banner "   ##$GREEN$BOLD Number of tests:$ENDCOLOR $NORMAL$BOLD$number_of_tests$NORMAL" 107)
   ldevices=$(complete_banner "   ##$GREEN$BOLD Devices:$ENDCOLOR $NORMAL$BOLD$number_of_devices$NORMAL" 107)
 
   mkdir -p $log_folder
@@ -146,6 +147,7 @@ function printBanner() {
   echo -e "$lbranch"
   echo -e "$ltest_app_id"
   echo -e "$ltest_runner"
+  echo -e "$lnumber_of_tests"
   echo -e "$ldevices"
   counter=0
   for ip in "${ips_array[@]}";do
@@ -382,8 +384,7 @@ function launchInstrumentationTestADB() {
 # MONITOR INSTRUMENTATION TEST
 function monitoringInstrumentationTest() {
   barName="   ## 🚀$BOLD Executing tests       $NORMAL "
-  number_of_ui_tests=350
-  ProgressBar "$barName" 0 $number_of_ui_tests
+  ProgressBar "$barName" 0 $number_of_tests
   start_time=`date +%s`
   end_time=$`date +%s`
 
@@ -410,7 +411,7 @@ function monitoringInstrumentationTest() {
       counter=$((counter+1))
     done
 
-    ProgressBar "$barName" $total_test_count $number_of_ui_tests
+    ProgressBar "$barName" $total_test_count $number_of_tests
     end_time=$(date +%s)
     if [ "${number_of_devices_finish}" == "${number_of_devices}" ];then
       end_time=$(date +%s)
@@ -537,15 +538,15 @@ connectDevices
 getDeviceArray
 printBanner
 
-#buildApk
-#buildInstrumentationTest
-#installApp
+buildApk
+buildInstrumentationTest
+installApp
 
 # FAST! this is for the case of using adb to launch the tests
-#installInstrumentationTest
-#launchInstrumentationTestADB
+installInstrumentationTest
+launchInstrumentationTestADB
 
-#monitoringInstrumentationTest
-#showShardTestResults
+monitoringInstrumentationTest
+showShardTestResults
 
 disconnectDevices
