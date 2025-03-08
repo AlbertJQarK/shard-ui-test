@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # STF VARS
-TOKEN_STF=$(cat ~/.env | grep "TOKEN_STF" | cut -d '=' -f 2)
-STF_HOST=$(cat ~/.env | grep "STF_HOST" | cut -d '=' -f 2)
+TOKEN_STF=$(cat ~/.env-sft | grep "TOKEN_STF" | cut -d '=' -f 2)
+STF_HOST=$(cat ~/.env-stf | grep "STF_HOST" | cut -d '=' -f 2)
 
 #MAX_DEVICE_NUMBER=1
 
@@ -182,7 +182,7 @@ function getDeviceArray {
   if [ "${number_of_devices}" == "0" ];then
     echo "No devices connected"
     #disconnectDevices
-    #exit 0
+    exit 0
   fi
 }
 
