@@ -19,6 +19,10 @@ base_path=$(if [ "${1}" != "" ];then echo "${1}"; else echo "${current_folder}";
 log_folder="$base_path/app/build/outputs/logs"
 test_runner=$(cat $base_path/app/build.gradle | grep "TestRunner" | cut -d '"' -f 2 | cut -d '.' -f 5)
 test_app_id=$(cat $base_path/app/build.gradle | grep "testApplicationId" | cut -d '"' -f 2)
+test_runner_path=$(echo $test_app_id | sed -e "s/\./\//g")
+test_tags=$(cat $base_path/app/src/androidTest/java/$test_runner_path/$test_runner.kt | grep "tags" | tr ',' '\n' | grep "@" | grep -v "Cucumber" | sed -e "s/\"//g" | sed -e "s/\[//g" | sed -e "s/(//g" | sed -e "s/\]//g" | sed -e "s/)//g" | sed -e "s/ //g" | sed -e "s/=//g" | sed -e "s/tags//g" | tr '\n' ', ')
+IFS=', ' read -r -a test_tags_array <<< "$test_tags"
+#echo "test tags array: ${test_tags_array[@]}"
 
 name=$(cd $base_path; git config --local remote.origin.url | sed -n 's#.*/\([^.]*\)\.git#\1#p')
 git_branch=$(cd $base_path; git status | grep branch | grep On | awk {'print $3'})
@@ -533,15 +537,15 @@ connectDevices
 getDeviceArray
 printBanner
 
-buildApk
-buildInstrumentationTest
-installApp
+#buildApk
+#buildInstrumentationTest
+#installApp
 
 # FAST! this is for the case of using adb to launch the tests
-installInstrumentationTest
-launchInstrumentationTestADB
+#installInstrumentationTest
+#launchInstrumentationTestADB
 
-monitoringInstrumentationTest
-showShardTestResults
+#monitoringInstrumentationTest
+#showShardTestResults
 
 disconnectDevices
