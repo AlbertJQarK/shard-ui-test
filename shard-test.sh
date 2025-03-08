@@ -14,13 +14,14 @@ variant="debug"
 errors_tag_list=("^Tests run: *[0-9]*,  Failures: *[0-9]*" "Process crashed" "INSTRUMENTATION_FAILED")
 success_tag_list=("^OK (*[0-9]* test")
 
-name=$(git config --local remote.origin.url | sed -n 's#.*/\([^.]*\)\.git#\1#p')
-git_branch=$(git status | grep branch | grep On | awk {'print $3'})
-
-base_path=$(pwd)
+current_folder=$(pwd)
+base_path=$(if [ "${1}" != "" ];then echo "${1}"; else echo "${current_folder}"; fi)
 log_folder="$base_path/app/build/outputs/logs"
 test_runner=$(cat $base_path/app/build.gradle | grep "TestRunner" | cut -d '"' -f 2 | cut -d '.' -f 5)
 test_app_id=$(cat $base_path/app/build.gradle | grep "testApplicationId" | cut -d '"' -f 2)
+
+name=$(cd $base_path; git config --local remote.origin.url | sed -n 's#.*/\([^.]*\)\.git#\1#p')
+git_branch=$(cd $base_path; git status | grep branch | grep On | awk {'print $3'})
 
 # Regular Colors
 GREEN='\033[0;32m'
@@ -168,14 +169,17 @@ function printExecutionTime {
 # GET DEVICES ARRAY
 function getDeviceArray {
   devices=$($ANDROID_HOME/platform-tools/adb devices)
+
   #IPS
-  device_ips=$(echo "$devices" | grep ":" | grep -v "offline" | grep -v "unauthorized" | cut -d ':' -f 1 | tr '\n' ',')
+  device_ips=$(echo "$devices" | grep -v "offline" | grep -v "unauthorized" | grep ":"  | cut -d ':' -f 1 | tr '\n' ',')
   IFS=', ' read -r -a ips_array <<< "$device_ips"
+
   #PORTS
-  device_ports=$(echo "$devices" | grep -o "[0-9]*" | grep -v "offline" | grep -v "unauthorized" | grep -E '(^|[^0-9])[0-9]{4}($|[^0-9])' | tr '\n' ',')
+  device_ports=$(echo "$devices" | grep -v "offline" | grep -v "unauthorized" | grep -o "[0-9]*" | grep -E '(^|[^0-9])[0-9]{4}($|[^0-9])' | tr '\n' ',')
   IFS=', ' read -r -a ports_array <<< "$device_ports"
+
   #STATUS
-  device_status=$(echo "$devices" | grep ":" | cut -d ':' -f 2 | sed 's/[0-9]//g' | sed 's/\t//g' | tr '\n' ',')
+  device_status=$(echo "$devices" | grep -v "offline" | grep -v "unauthorized" | grep ":" | cut -d ':' -f 2 | sed 's/[0-9]//g' | sed 's/\t//g' | tr '\n' ',')
   IFS=', ' read -r -a status_array <<< "$device_status"
 
   number_of_devices=${#ips_array[@]}
@@ -188,11 +192,12 @@ function getDeviceArray {
 
 # BUILD APP APK
 function buildApk() {
-  barName="   ## 🛠$BOLD Building app         $NORMAL  "
+  barName="   ## 🛠 ${BOLD} Building app         $NORMAL  "
   max_tasks=500
   log_file="$log_folder/${flavor}${variant}ApkBuild.log"
   ProgressBar "$barName" 0 $max_tasks
 
+  cd $base_path
   command="./gradlew app:assemble${flavor}${variant}"
   $command > $log_file 2>&1 &
 
@@ -218,9 +223,18 @@ function buildApk() {
   echo ""
 }
 
+function onBuildError {
+  barName="${1}"
+  echo -e "\r$barName[#########${RED}${BOLD}FAILED${NORMAL}${ENDCOLOR}##########] 100%"
+  echo ""
+  printExecutionTime $RED
+  disconnectDevices
+  exit 0
+}
+
 # BUILD INSTRUMENTATION TEST
 function buildInstrumentationTest() {
-  barName="   ## 🛠$BOLD Building test apps    $NORMAL "
+  barName="   ## 🛠 ${BOLD} Building test apps    $NORMAL "
 
   ndevices=$(echo "${#ports_array[@]}")
   task_per_device=500
@@ -233,7 +247,7 @@ function buildInstrumentationTest() {
     log_file="$log_folder/shard${counter}Build.log"
 
     export "ANDROID_SERIAL=${ips_array[$counter]}:$port"
-    command="./gradlew app:assemble${flavor}${variant}AndroidTest -Pandroid.testInstrumentationRunnerArguments.numShards=$number_of_devices -Pandroid.testInstrumentationRunnerArguments.shardIndex=$counter"
+    command="$base_path/gradlew app:assemble${flavor}${variant}AndroidTest -Pandroid.testInstrumentationRunnerArguments.numShards=$number_of_devices -Pandroid.testInstrumentationRunnerArguments.shardIndex=$counter"
     $command > $log_file 2>&1 &
 
     exit=1
@@ -279,11 +293,11 @@ function installApp() {
   if [ "${flavor}" != "" ];then
     apk=$(ls $base_path/app/build/outputs/apk/${flavor}/${variant}/*.apk)
     apk_file_name=$(echo ${apk##*/})
-    apk_file="./app/build/outputs/apk/${flavor}/${variant}/$apk_file_name"
+    apk_file="$base_path/app/build/outputs/apk/${flavor}/${variant}/$apk_file_name"
   else
     apk=$(ls $base_path/app/build/outputs/apk/${variant}/*.apk)
     apk_file_name=$(echo ${apk##*/})
-    apk_file="./app/build/outputs/apk/${variant}/$apk_file_name"
+    apk_file="$base_path/app/build/outputs/apk/${variant}/$apk_file_name"
   fi
   apk_file_name=$(echo ${apk_file##*/})
 
@@ -332,9 +346,9 @@ function installInstrumentationTest() {
   for port in "${ports_array[@]}";do
     export "ANDROID_SERIAL=${ips_array[$counter]}:$port"
     if [ "${flavor}" != "" ];then
-      command="adb -s ${ips_array[$counter]}:$port install -r ./app/build/outputs/apk/androidTest/${flavor}/${variant}/app-${flavor}-${variant}-androidTest${counter}.apk"
+      command="adb -s ${ips_array[$counter]}:$port install -r $base_path/app/build/outputs/apk/androidTest/${flavor}/${variant}/app-${flavor}-${variant}-androidTest${counter}.apk"
     else
-      command="adb -s ${ips_array[$counter]}:$port install -r ./app/build/outputs/apk/androidTest/${variant}/app-${variant}-androidTest${counter}.apk" 
+      command="adb -s ${ips_array[$counter]}:$port install -r $base_path/app/build/outputs/apk/androidTest/${variant}/app-${variant}-androidTest${counter}.apk" 
     fi
     $command > $log_folder/shard${counter}InstallInstrumentation.log 2>&1
     counter=$((counter+1))
@@ -454,8 +468,8 @@ function showShardTestResults {
 }
 
 function disconnectDevices() {
-  barName="   ## 📡$BOLD Disconnect devices  $NORMAL  "
-  ProgressBar "$barName" 0 1
+  #barName="   ## 📡$BOLD Disconnect devices  $NORMAL  "
+  #ProgressBar "$barName" 0 1
   devices_json=$(curl -X GET "$STF_HOST/api/v1/devices" -H "Authorization: Bearer $TOKEN_STF" 2>&1)
 
   devices_serials_raw=$(echo $devices_json | grep -o '"serial":"[^"]*' | grep -o '[^"]*$')
@@ -470,7 +484,7 @@ function disconnectDevices() {
   for device in "${device_url_array[@]}";do
       adb disconnect $device > /dev/null 2>&1
       counter=$((counter+1))
-      ProgressBar "$barName" $counter $ndevices
+      #ProgressBar "$barName" $counter $ndevices
   done
 
   counter=0
@@ -485,8 +499,8 @@ function connectDevices() {
   #barName="   ## 📡$BOLD Connect devices     $NORMAL  "
   #ProgressBar "$barName" 0 1
   devices_json=$(curl -X GET "$STF_HOST/api/v1/devices" -H "Authorization: Bearer $TOKEN_STF" 2>&1)
-
-  devices_serials_raw=$(echo $devices_json | grep -o '"serial":"[^"]*' | grep -o '[^"]*$' | grep "192.*")
+  #devices_serials_raw=$(echo $devices_json | grep -o '"serial":"[^"]*' | grep -o '[^"]*$' | grep "192.*")
+    devices_serials_raw=$(echo $devices_json | grep -o '"serial":"[^"]*' | grep -o '[^"]*$')
   devices_serials=$(echo $devices_serials_raw | tr ' ' ',')
   IFS=', ' read -r -a device_serials_array <<< "$devices_serials"
   ndevices=$(echo "${#device_serials_array[@]}")
