@@ -430,7 +430,7 @@ function showShardTestResults {
   for port in "${ips_array[@]}";do
 
     shard_emoji=${emoji_list[RANDOM%${#emoji_list[@]} + 1]}
-    result_base="   ## $shard_emoji Shard$counter                "
+    result_base="   ## $shard_emoji Device $counter              "
     result=$result_base
 
     # On error detected
