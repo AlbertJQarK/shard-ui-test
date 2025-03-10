@@ -42,6 +42,7 @@ emoji_list=(🔥 🍁 👻 👾 🎃 🥷 👑 🐰 🦊 🐼 🐨 🐷 🐸 �
 emoji_raw=${emoji_list[RANDOM%${#emoji_list[@]} + 1]}
 emoji=$(echo "$emoji_raw" | tr -d '[:space:]')
 
+# Function to display time in human readable format
 function displaytime {
   local T=$1
   local D=$((T/60/60/24))
@@ -55,6 +56,7 @@ function displaytime {
   printf '%d seconds\n' $S
 }
 
+# Function to display a progress bar
 function ProgressBar {
   barName=${1}
   # Process data
@@ -68,6 +70,7 @@ function ProgressBar {
   printf "\r${barName}[${_fill// /#}${_empty// /-}] ${_progress}%%"
 }
 
+# Function to check the progress of the push
 function check_push_progress(){
      re='^[0-9]+$'
      local push_to=$1 #path in the device
@@ -103,6 +106,7 @@ function check_push_progress(){
     done
 }
 
+# Function to complete the banner
 function complete_banner {
   line=${1}
   end_line=${2}
@@ -116,6 +120,7 @@ function complete_banner {
   echo "$line"
 }
 
+# Function to print the banner
 function printBanner() {
   start=`date +%s`
 
@@ -163,6 +168,7 @@ function printBanner() {
   echo "   #############################################################"
 }
 
+# Function to print the execution time
 function printExecutionTime {
   color=${1}
   end=`date +%s`
@@ -172,7 +178,7 @@ function printExecutionTime {
   echo ""
 }
 
-# GET DEVICES ARRAY
+# Function to get the devices connected
 function getDeviceArray {
   devices=$($ANDROID_HOME/platform-tools/adb devices)
 
@@ -196,7 +202,7 @@ function getDeviceArray {
   fi
 }
 
-# BUILD APP APK
+# Function to build the apk
 function buildApk() {
   barName="   ## 🛠${BOLD} Building app         $NORMAL  "
   max_tasks=500
@@ -229,6 +235,7 @@ function buildApk() {
   echo ""
 }
 
+# Function to handle the build error
 function onBuildError {
   barName="${1}"
   echo -e "\r$barName[#########${RED}${BOLD}FAILED${NORMAL}${ENDCOLOR}##########] 100%"
@@ -238,7 +245,7 @@ function onBuildError {
   exit 0
 }
 
-# BUILD INSTRUMENTATION TEST
+# Function to build the instrumentation test
 function buildInstrumentationTest() {
   barName="   ## 🛠${BOLD} Building test apps    $NORMAL "
 
@@ -290,7 +297,7 @@ function buildInstrumentationTest() {
   echo ""
 }
 
-# INSTALL APP
+# Function to install the app
 function installApp() {
   barName="   ## 📲$BOLD Installing app       $NORMAL  "
   ndevices=$(echo "${#ports_array[@]}")
@@ -343,7 +350,7 @@ function installApp() {
   echo ""
 }
 
-# INSTALL INSTRUMENTATION TEST
+# Function to install the instrumentation test
 function installInstrumentationTest() {
   barName="   ## 📲$BOLD Installing tests apps  $NORMAL"
   ndevices=$(echo "${#ports_array[@]}")
@@ -363,7 +370,7 @@ function installInstrumentationTest() {
   echo ""
 }
 
-# LAUNCH INSTRUMENTATION TEST USING ADB
+# Function to launch the instrumentation test
 function launchInstrumentationTestADB() {
   barName="   ## 📡$BOLD launching tests      $NORMAL  "
   ndevices=$(echo "${#ports_array[@]}")
@@ -381,7 +388,7 @@ function launchInstrumentationTestADB() {
   echo ""
 }
 
-# MONITOR INSTRUMENTATION TEST
+# Function to monitor the instrumentation test
 function monitoringInstrumentationTest() {
   barName="   ## 🚀$BOLD Executing tests       $NORMAL "
   ProgressBar "$barName" 0 $number_of_tests
@@ -423,6 +430,7 @@ function monitoringInstrumentationTest() {
   echo ""
 }
 
+# Function to show the results of the instrumentation test
 function showShardTestResults {
   echo -e "   #############################################################"
   counter=0
@@ -472,6 +480,7 @@ function showShardTestResults {
   fi
 }
 
+# Function to disconnect the devices
 function disconnectDevices() {
   #barName="   ## 📡$BOLD Disconnect devices  $NORMAL  "
   #ProgressBar "$barName" 0 1
@@ -500,6 +509,7 @@ function disconnectDevices() {
   done
 }
 
+# Function to connect the devices
 function connectDevices() {
   #barName="   ## 📡$BOLD Connect devices     $NORMAL  "
   #ProgressBar "$barName" 0 1
@@ -532,6 +542,8 @@ function connectDevices() {
   done
   #echo ""
 }
+
+# MAIN
 
 connectDevices
 
