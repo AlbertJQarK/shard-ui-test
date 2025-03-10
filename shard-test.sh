@@ -195,7 +195,7 @@ function getDeviceArray {
   number_of_devices=${#ips_array[@]}
   if [ "${number_of_devices}" == "0" ];then
     echo "No devices connected"
-    #disconnectDevices
+    disconnectDevices
     exit 0
   fi
 }
