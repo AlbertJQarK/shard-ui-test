@@ -126,7 +126,7 @@ function printBanner() {
   lbranch=$(complete_banner "   ##$GREEN$BOLD Branch:$ENDCOLOR $NORMAL$BOLD$git_branch$NORMAL" 107)
   ltest_app_id=$(complete_banner "   ##$GREEN$BOLD Test App ID:$ENDCOLOR $NORMAL$BOLD$test_app_id$NORMAL" 107)
   ltest_runner=$(complete_banner "   ##$GREEN$BOLD Runner:$ENDCOLOR $NORMAL$BOLD$test_runner$NORMAL" 107)
-  lnumber_of_tests=$(complete_banner "   ##$GREEN$BOLD Number of tests:$ENDCOLOR $NORMAL$BOLD$number_of_tests$NORMAL" 107)
+  lnumber_of_tests=$(complete_banner "   ##$GREEN$BOLD Number of tests:$ENDCOLOR $NORMAL$BOLD$number_of_test$NORMAL" 107)
   ldevices=$(complete_banner "   ##$GREEN$BOLD Devices:$ENDCOLOR $NORMAL$BOLD$number_of_devices$NORMAL" 107)
 
   mkdir -p $log_folder
@@ -430,7 +430,7 @@ function showShardTestResults {
   for port in "${ips_array[@]}";do
 
     shard_emoji=${emoji_list[RANDOM%${#emoji_list[@]} + 1]}
-    result_base="   ## $shard_emoji Device $counter              "
+    result_base="   ## $shard_emoji Shard$counter                "
     result=$result_base
 
     # On error detected
