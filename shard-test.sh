@@ -4,8 +4,6 @@
 TOKEN_STF=$(cat ~/.env-sft | grep "TOKEN_STF" | cut -d '=' -f 2)
 STF_HOST=$(cat ~/.env-stf | grep "STF_HOST" | cut -d '=' -f 2)
 
-#MAX_DEVICE_NUMBER=1
-
 # PROJECT VARS
 flavor=""
 variant="debug"
