@@ -157,7 +157,7 @@ function print_banner() {
   echo -e "   ## $BLUE ███████ ██ ██  ██ ██   ██ ██████  ██    ██ ██ ██   ██$ENDCOLOR  ##"
   echo -e "   ## $BLUE ██   ██ ██  ██ ██ ██   ██ ██   ██ ██    ██ ██ ██   ██$ENDCOLOR  ##"
   echo -e "   ## $BLUE ██   ██ ██   ████ ██████  ██   ██  ██████  ██ ██████$ENDCOLOR   ##"
-  echo -e "   ## $BOLD Testing Assistance Tool                             $NORMAL   ##"
+  echo -e "   ## $BOLD Test Assistance Tool                                $NORMAL   ##"
   echo -e "   #############################################################"
   echo -e "$lmachine"
   echo -e "$lproject"
