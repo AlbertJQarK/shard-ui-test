@@ -161,7 +161,9 @@ function print_banner() {
   echo -e "   #############################################################"
   echo -e "$lmachine"
   echo -e "$lproject"
-  echo -e "$lflavor"
+  if [ "${flavor}" != "" ];then
+    echo -e "$lflavor"
+  fi
   echo -e "$lvariant"
   echo -e "$lbranch"
   echo -e "$ltest_app_id"
