@@ -1,27 +1,37 @@
 #!/bin/bash
 
-# STF VARS
+# STF vars
 TOKEN_STF=$(cat ~/.env-sft | grep "TOKEN_STF" | cut -d '=' -f 2)
 STF_HOST=$(cat ~/.env-stf | grep "STF_HOST" | cut -d '=' -f 2)
 
-# PROJECT VARS
+# Vars
 flavor=""
 variant="debug"
 
-# TAG LIST FOR MONITORING RESULTS
+# Tags to detect errors
 errors_tag_list=("^Tests run: *[0-9]*,  Failures: *[0-9]*" "Process crashed" "INSTRUMENTATION_FAILED")
 success_tag_list=("^OK (*[0-9]* test")
 
+# Getting the information from the gradle files
 current_folder=$(pwd)
 base_path=$(if [ "${1}" != "" ];then echo "${1}"; else echo "${current_folder}"; fi)
 log_folder="$base_path/app/build/outputs/logs"
+mkdir -p $log_folder
 test_runner=$(cat $base_path/app/build.gradle | grep "TestRunner" | cut -d '"' -f 2 | cut -d '.' -f 5)
 test_app_id=$(cat $base_path/app/build.gradle | grep "testApplicationId" | cut -d '"' -f 2)
 test_runner_path=$(echo $test_app_id | sed -e "s/\./\//g")
+
+# Getting the number of tests
 test_tags=$(cat $base_path/app/src/androidTest/java/$test_runner_path/$test_runner.kt | grep "tags" | tr ',' '\n' | grep "@" | grep -v "Cucumber" | sed -e "s/\"//g" | sed -e "s/\[//g" | sed -e "s/(//g" | sed -e "s/\]//g" | sed -e "s/)//g" | sed -e "s/ //g" | sed -e "s/=//g" | sed -e "s/tags//g" | tr '\n' ', ')
 IFS=', ' read -r -a test_tags_array <<< "$test_tags"
 number_of_tests=$(grep -r -o -f <(printf "%s\n" "${test_tags_array[@]}") $base_path/app/src/androidTest | grep -v ".kt" | wc -l | sed -e "s/ //g")
 
+# If number_of_tests is 0, then we have to count how many lines contains 'Scenario' on *.feature files
+if [ "${number_of_tests}" == "0" ];then
+  number_of_tests=$(grep -r -o -f <(printf "%s\n" "Scenario") $base_path/app/src/androidTest/assets/features | grep -v ".kt" | wc -l | sed -e "s/ //g")
+fi
+
+# Getting git information
 name=$(cd $base_path; git config --local remote.origin.url | sed -n 's#.*/\([^.]*\)\.git#\1#p')
 git_branch=$(cd $base_path; git status | grep branch | grep On | awk {'print $3'})
 
@@ -41,7 +51,7 @@ emoji_raw=${emoji_list[RANDOM%${#emoji_list[@]} + 1]}
 emoji=$(echo "$emoji_raw" | tr -d '[:space:]')
 
 # Function to display time in human readable format
-function displaytime {
+function display_time {
   local T=$1
   local D=$((T/60/60/24))
   local H=$((T/60/60%24))
@@ -55,16 +65,19 @@ function displaytime {
 }
 
 # Function to display a progress bar
-function ProgressBar {
+function progress_bar {
   barName=${1}
+
   # Process data
   let _progress=(${2}*100/${3}*100)/100
   let _done=(${_progress}*5/2)/10
   let _left=25-$_done
-  # Build progressbar string lengths
+
+  # Build progress_bar string lengths
   _fill=$(printf "%${_done}s")
   _empty=$(printf "%${_left}s")
 
+  # Print progress bar
   printf "\r${barName}[${_fill// /#}${_empty// /-}] ${_progress}%%"
 }
 
@@ -119,7 +132,7 @@ function complete_banner {
 }
 
 # Function to print the banner
-function printBanner() {
+function print_banner() {
   start=`date +%s`
 
   lmachine=$(complete_banner "   ##$GREEN$BOLD Machine:$ENDCOLOR $NORMAL$BOLD$HOSTNAME$NORMAL" 107)
@@ -129,10 +142,9 @@ function printBanner() {
   lbranch=$(complete_banner "   ##$GREEN$BOLD Branch:$ENDCOLOR $NORMAL$BOLD$git_branch$NORMAL" 107)
   ltest_app_id=$(complete_banner "   ##$GREEN$BOLD Test App ID:$ENDCOLOR $NORMAL$BOLD$test_app_id$NORMAL" 107)
   ltest_runner=$(complete_banner "   ##$GREEN$BOLD Runner:$ENDCOLOR $NORMAL$BOLD$test_runner$NORMAL" 107)
-  lnumber_of_tests=$(complete_banner "   ##$GREEN$BOLD Number of tests:$ENDCOLOR $NORMAL$BOLD$number_of_test$NORMAL" 107)
+  lnumber_of_tests=$(complete_banner "   ##$GREEN$BOLD Number of tests:$ENDCOLOR $NORMAL$BOLD$number_of_tests$NORMAL" 107)
   ldevices=$(complete_banner "   ##$GREEN$BOLD Devices:$ENDCOLOR $NORMAL$BOLD$number_of_devices$NORMAL" 107)
 
-  mkdir -p $log_folder
   echo -e ""
   echo -e "   #############################################################"
   echo -e "   ## $BOLD ALBERTJ                                    $emoji       $NORMAL   ##"
@@ -172,12 +184,12 @@ function printExecutionTime {
   end=`date +%s`
   runtime=$((end-start))
   echo -e "   #############################################################"
-  echo -e " $color $BOLD Total execution time: $(displaytime ${runtime}) $emoji $NORMAL $ENDCOLOR"
+  echo -e " $color $BOLD Total execution time: $(display_time ${runtime}) $emoji $NORMAL $ENDCOLOR"
   echo ""
 }
 
 # Function to get the devices connected
-function getDeviceArray {
+function get_device_array {
   devices=$($ANDROID_HOME/platform-tools/adb devices)
 
   #IPS
@@ -195,17 +207,17 @@ function getDeviceArray {
   number_of_devices=${#ips_array[@]}
   if [ "${number_of_devices}" == "0" ];then
     echo "No devices connected"
-    disconnectDevices
+    disconnect_devices
     exit 0
   fi
 }
 
 # Function to build the apk
-function buildApk() {
+function build_apk() {
   barName="   ## 🛠${BOLD} Building app         $NORMAL  "
   max_tasks=500
   log_file="$log_folder/${flavor}${variant}ApkBuild.log"
-  ProgressBar "$barName" 0 $max_tasks
+  progress_bar "$barName" 0 $max_tasks
 
   cd $base_path
   command="./gradlew app:assemble${flavor}${variant}"
@@ -215,17 +227,17 @@ function buildApk() {
   while [ ${exit} -gt 0 ];do
 
     tasks_done=$(cat $log_file | grep "Task" | wc -l)
-    ProgressBar "$barName" $tasks_done $max_tasks
+    progress_bar "$barName" $tasks_done $max_tasks
 
     build_failed=$(cat $log_file | grep "BUILD FAILED")
     if [ "${build_failed}" != "" ];then
-      ProgressBar "$barName" $max_tasks $max_tasks
+      progress_bar "$barName" $max_tasks $max_tasks
       onBuildError "$barName"
     fi
 
     build_success=$(cat $log_file | grep "BUILD SUCCESSFUL")
     if [ "${build_success}" != "" ];then
-      ProgressBar "$barName" $max_tasks $max_tasks
+      progress_bar "$barName" $max_tasks $max_tasks
       exit=0
     fi
     sleep 2
@@ -239,18 +251,18 @@ function onBuildError {
   echo -e "\r$barName[#########${RED}${BOLD}FAILED${NORMAL}${ENDCOLOR}##########] 100%"
   echo ""
   printExecutionTime $RED
-  disconnectDevices
+  disconnect_devices
   exit 0
 }
 
 # Function to build the instrumentation test
-function buildInstrumentationTest() {
+function build_instrumentation_test() {
   barName="   ## 🛠${BOLD} Building test apps    $NORMAL "
 
   ndevices=$(echo "${#ports_array[@]}")
   task_per_device=500
   max_tasks=$(($task_per_device*$ndevices))
-  ProgressBar "$barName" 0 $max_tasks
+  progress_bar "$barName" 0 $max_tasks
 
   counter=0
   total_tasks_done=0
@@ -266,11 +278,11 @@ function buildInstrumentationTest() {
 
       tasks_done=$(cat $log_file | grep "Task" | wc -l)
       show_tasks_done=$(($counter*$task_per_device+$tasks_done))
-      ProgressBar "$barName" $show_tasks_done $max_tasks
+      progress_bar "$barName" $show_tasks_done $max_tasks
 
       build_failed=$(cat $log_file | grep "BUILD FAILED")
       if [ "${build_failed}" != "" ];then
-        ProgressBar "$barName" $max_tasks $max_tasks
+        progress_bar "$barName" $max_tasks $max_tasks
         onBuildError "$barName"
       fi
 
@@ -289,14 +301,14 @@ function buildInstrumentationTest() {
 
     counter=$((counter+1))
     if [ "${counter}" -eq "${ndevices}" ];then
-      ProgressBar "$barName" $max_tasks $max_tasks
+      progress_bar "$barName" $max_tasks $max_tasks
     fi
   done
   echo ""
 }
 
 # Function to install the app
-function installApp() {
+function install_app() {
   barName="   ## 📲$BOLD Installing app       $NORMAL  "
   ndevices=$(echo "${#ports_array[@]}")
   max_tasks=$((100*$ndevices))
@@ -321,9 +333,9 @@ function installApp() {
     $commnad_pre > $log_folder/shard${counter}RemoveApp.log 2>&1
 
     command="adb -s $device install -r $apk_file"
-    $command > $log_folder/shard${counter}InstallApp.log 2>&1 &
+    $command > $log_folder/shard${counter}install_app.log 2>&1 &
 
-    percentage_log_file="$log_folder/shardPercentage${counter}InstallApp.log"
+    percentage_log_file="$log_folder/shardPercentage${counter}install_app.log"
     rm -f $percentage_log_file
     check_push_progress "/data/local/tmp/$apk_file_name" "$apk_file" $device > $percentage_log_file 2>&1 &
 
@@ -337,7 +349,7 @@ function installApp() {
       fi
 
       show_percentage=$(($counter*100+$percentage))
-      ProgressBar "$barName" $show_percentage $max_tasks
+      progress_bar "$barName" $show_percentage $max_tasks
       if [ "${percentage}" == "100" ];then
         exit=0
       fi
@@ -349,10 +361,10 @@ function installApp() {
 }
 
 # Function to install the instrumentation test
-function installInstrumentationTest() {
+function install_instrumentation_test() {
   barName="   ## 📲$BOLD Installing tests apps  $NORMAL"
   ndevices=$(echo "${#ports_array[@]}")
-  ProgressBar "$barName" 0 $ndevices
+  progress_bar "$barName" 0 $ndevices
   counter=0
   for port in "${ports_array[@]}";do
     export "ANDROID_SERIAL=${ips_array[$counter]}:$port"
@@ -363,16 +375,16 @@ function installInstrumentationTest() {
     fi
     $command > $log_folder/shard${counter}InstallInstrumentation.log 2>&1
     counter=$((counter+1))
-    ProgressBar "$barName" $counter $ndevices
+    progress_bar "$barName" $counter $ndevices
   done
   echo ""
 }
 
 # Function to launch the instrumentation test
-function launchInstrumentationTestADB() {
+function launch_instrumentation_test_adb() {
   barName="   ## 📡$BOLD launching tests      $NORMAL  "
   ndevices=$(echo "${#ports_array[@]}")
-  ProgressBar "$barName" 0 $ndevices
+  progress_bar "$barName" 0 $ndevices
   counter=0
   for port in "${ports_array[@]}";do
     export "ANDROID_SERIAL=${ips_array[$counter]}:$port"
@@ -381,15 +393,15 @@ function launchInstrumentationTestADB() {
     command="adb -s ${ips_array[$counter]}:$port $command_pre $counter $command_post"
     $command > $log_folder/shard${counter}Instrumentation.log 2>&1 &
     counter=$((counter+1))
-    ProgressBar "$barName" $counter $ndevices
+    progress_bar "$barName" $counter $ndevices
   done
   echo ""
 }
 
 # Function to monitor the instrumentation test
-function monitoringInstrumentationTest() {
+function monitoring_instrumentation_test() {
   barName="   ## 🚀$BOLD Executing tests       $NORMAL "
-  ProgressBar "$barName" 0 $number_of_tests
+  progress_bar "$barName" 0 $number_of_tests
   start_time=`date +%s`
   end_time=$`date +%s`
 
@@ -416,11 +428,11 @@ function monitoringInstrumentationTest() {
       counter=$((counter+1))
     done
 
-    ProgressBar "$barName" $total_test_count $number_of_tests
+    progress_bar "$barName" $total_test_count $number_of_tests
     end_time=$(date +%s)
     if [ "${number_of_devices_finish}" == "${number_of_devices}" ];then
       end_time=$(date +%s)
-      ProgressBar "$barName" 1 1
+      progress_bar "$barName" 1 1
       exit=0
     fi
     sleep 5
@@ -429,14 +441,14 @@ function monitoringInstrumentationTest() {
 }
 
 # Function to show the results of the instrumentation test
-function showShardTestResults {
+function show_shard_test_results {
   echo -e "   #############################################################"
   counter=0
   failed=false
   for port in "${ips_array[@]}";do
 
     shard_emoji=${emoji_list[RANDOM%${#emoji_list[@]} + 1]}
-    result_base="   ## $shard_emoji Shard$counter                "
+    result_base="   ## $shard_emoji Device $counter              "
     result=$result_base
 
     # On error detected
@@ -446,7 +458,7 @@ function showShardTestResults {
         result+="$RED $device_status $ENDCOLOR"
         failed=true
 
-        ## COPY ERROR LOGS
+        ## Copy the errors to a new file
         line_num=$(grep -n "Time: " $log_folder/shard${counter}Instrumentation.log | head -n 1 | cut -d: -f1)
         total_lines=$(cat $log_folder/shard${counter}Instrumentation.log | wc -l)
         tail -n $(($total_lines-$line_num)) $log_folder/shard${counter}Instrumentation.log > $log_folder/shard${counter}ErrorsInstrumentation.log
@@ -479,9 +491,7 @@ function showShardTestResults {
 }
 
 # Function to disconnect the devices
-function disconnectDevices() {
-  #barName="   ## 📡$BOLD Disconnect devices  $NORMAL  "
-  #ProgressBar "$barName" 0 1
+function disconnect_devices() {
   devices_json=$(curl -X GET "$STF_HOST/api/v1/devices" -H "Authorization: Bearer $TOKEN_STF" 2>&1)
 
   devices_serials_raw=$(echo $devices_json | grep -o '"serial":"[^"]*' | grep -o '[^"]*$')
@@ -492,32 +502,26 @@ function disconnectDevices() {
   devices_urls=$(echo $devices_urls_raw | tr ' ' ',')
   IFS=', ' read -r -a device_url_array <<< "$devices_urls"
   ndevices=$(echo "${#device_url_array[@]}")
-  counter=0
+
   for device in "${device_url_array[@]}";do
       adb disconnect $device > /dev/null 2>&1
-      counter=$((counter+1))
-      #ProgressBar "$barName" $counter $ndevices
   done
 
-  counter=0
+
   for serial in "${device_serials_array[@]}";do
     response=$(curl -X DELETE \
                      -H "Authorization: Bearer $TOKEN_STF" "$STF_HOST/api/v1/user/devices/$serial" 2>&1)
-    counter=$((counter+1))
   done
 }
 
 # Function to connect the devices
-function connectDevices() {
-  #barName="   ## 📡$BOLD Connect devices     $NORMAL  "
-  #ProgressBar "$barName" 0 1
+function connect_devices() {
   devices_json=$(curl -X GET "$STF_HOST/api/v1/devices" -H "Authorization: Bearer $TOKEN_STF" 2>&1)
-  #devices_serials_raw=$(echo $devices_json | grep -o '"serial":"[^"]*' | grep -o '[^"]*$' | grep "192.*")
-    devices_serials_raw=$(echo $devices_json | grep -o '"serial":"[^"]*' | grep -o '[^"]*$')
+  devices_serials_raw=$(echo $devices_json | grep -o '"serial":"[^"]*' | grep -o '[^"]*$')
   devices_serials=$(echo $devices_serials_raw | tr ' ' ',')
   IFS=', ' read -r -a device_serials_array <<< "$devices_serials"
   ndevices=$(echo "${#device_serials_array[@]}")
-  counter=0
+
   for serial in "${device_serials_array[@]}";do
 
       response=$(curl -X POST -H "Content-Type: application/json" \
@@ -534,29 +538,24 @@ function connectDevices() {
          remote_connect_url=$(echo "$response" | grep -o '"remoteConnectUrl":"[^"]*' | sed -e 's/remoteConnectUrl":/ /' | tr -d '"' | tr -d ' ')
         adb connect $remote_connect_url 2>&1 > /dev/null
       fi
-
-      counter=$((counter+1))
-      #ProgressBar "$barName" $counter $ndevices
   done
-  #echo ""
+  sleep 3 # Wait for the devices to authorize
 }
 
 # MAIN
+connect_devices
 
-connectDevices
+get_device_array
+print_banner
 
-getDeviceArray
-printBanner
+build_apk
+build_instrumentation_test
+install_app
 
-buildApk
-buildInstrumentationTest
-installApp
+install_instrumentation_test
+launch_instrumentation_test_adb
 
-# FAST! this is for the case of using adb to launch the tests
-installInstrumentationTest
-launchInstrumentationTestADB
+monitoring_instrumentation_test
+show_shard_test_results
 
-monitoringInstrumentationTest
-showShardTestResults
-
-disconnectDevices
+disconnect_devices
