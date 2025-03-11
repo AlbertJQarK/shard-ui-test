@@ -183,7 +183,7 @@ function print_banner() {
 }
 
 # Function to print the execution time
-function printExecutionTime {
+function print_execution_time {
   color=${1}
   end=`date +%s`
   runtime=$((end-start))
@@ -193,7 +193,7 @@ function printExecutionTime {
 }
 
 # Function to get the devices connected
-function get_device_array {
+function get_devices_info {
   devices=$($ANDROID_HOME/platform-tools/adb devices)
 
   #IPS
@@ -254,7 +254,7 @@ function onBuildError {
   barName="${1}"
   echo -e "\r$barName[#########${RED}${BOLD}FAILED${NORMAL}${ENDCOLOR}##########] 100%"
   echo ""
-  printExecutionTime $RED
+  print_execution_time $RED
   disconnect_devices
   exit 0
 }
@@ -445,7 +445,7 @@ function monitoring_instrumentation_test() {
 }
 
 # Function to show the results of the instrumentation test
-function show_shard_test_results {
+function show_tests_results {
   echo -e "   #############################################################"
   counter=0
   failed=false
@@ -488,14 +488,14 @@ function show_shard_test_results {
   done
 
   if [ "$failed" == "true" ];then
-    printExecutionTime $RED
+    print_execution_time $RED
   else
-    printExecutionTime $GREEN
+    print_execution_time $GREEN
   fi
 }
 
 # Function to disconnect the devices
-function disconnect_devices() {
+function disconnect_stf_devices() {
   devices_json=$(curl -X GET "$STF_HOST/api/v1/devices" -H "Authorization: Bearer $TOKEN_STF" 2>&1)
 
   devices_serials_raw=$(echo $devices_json | grep -o '"serial":"[^"]*' | grep -o '[^"]*$')
@@ -511,7 +511,6 @@ function disconnect_devices() {
       adb disconnect $device > /dev/null 2>&1
   done
 
-
   for serial in "${device_serials_array[@]}";do
     response=$(curl -X DELETE \
                      -H "Authorization: Bearer $TOKEN_STF" "$STF_HOST/api/v1/user/devices/$serial" 2>&1)
@@ -519,7 +518,7 @@ function disconnect_devices() {
 }
 
 # Function to connect the devices
-function connect_devices() {
+function connect_stf_devices() {
   devices_json=$(curl -X GET "$STF_HOST/api/v1/devices" -H "Authorization: Bearer $TOKEN_STF" 2>&1)
   devices_serials_raw=$(echo $devices_json | grep -o '"serial":"[^"]*' | grep -o '[^"]*$')
   devices_serials=$(echo $devices_serials_raw | tr ' ' ',')
@@ -547,19 +546,19 @@ function connect_devices() {
 }
 
 # MAIN
-connect_devices
+connect_stf_devices
 
-get_device_array
+get_devices_info
 print_banner
 
 build_apk
 build_instrumentation_test
+
 install_app
-
 install_instrumentation_test
+
 launch_instrumentation_test_adb
-
 monitoring_instrumentation_test
-show_shard_test_results
+show_tests_results
 
-disconnect_devices
+disconnect_stf_devices
