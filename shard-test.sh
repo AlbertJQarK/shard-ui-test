@@ -8,15 +8,19 @@ STF_HOST=$(cat ~/.env-stf | grep "STF_HOST" | cut -d '=' -f 2)
 flavor=""
 variant="debug"
 
-# Tags to detect errors
+# Tags to detect in monitoring
 errors_tag_list=("^Tests run: *[0-9]*,  Failures: *[0-9]*" "Process crashed" "INSTRUMENTATION_FAILED")
 success_tag_list=("^OK (*[0-9]* test")
 
-# Getting the information from the gradle files
+# Getting the base folder
 current_folder=$(pwd)
 base_path=$(if [ "${1}" != "" ];then echo "${1}"; else echo "${current_folder}"; fi)
+
+# Creating the logs folder
 log_folder="$base_path/app/build/outputs/logs"
 mkdir -p $log_folder
+
+# Getting the information from the gradle files
 test_runner=$(cat $base_path/app/build.gradle | grep "TestRunner" | cut -d '"' -f 2 | cut -d '.' -f 5)
 test_app_id=$(cat $base_path/app/build.gradle | grep "testApplicationId" | cut -d '"' -f 2)
 test_runner_path=$(echo $test_app_id | sed -e "s/\./\//g")
